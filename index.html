@@ -458,7 +458,7 @@
                     'planning_constraints': '#8b5cf6'
                 };
                 // Hide certain layers from display (e.g., ALC source layer)
-                const hiddenLayers = new Set(['ALC UK', 'Renewable Energy developments Q1 2025']);
+                const hiddenLayers = new Set(['ALC UK', 'Renewable Energy developments Q1 2025', 'Flood risk areas']);
                 
                 // Process each layer's results and group into sections
                 let floodHTML = '';
@@ -524,7 +524,7 @@
                     <h4>Flood risk</h4>
                     <div class=\"section-content\">
                       <div id=\"floodSummaryInline\" class=\"designation-item\">Calculating flood percentage...</div>
-                      ${floodHTML || '<div class=\\"designation-item\\">No flood layers matched.</div>'}
+                      ${floodHTML}
                     </div>
                   </div>
                   <div class=\"section\">
