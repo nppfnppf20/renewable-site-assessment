@@ -112,7 +112,14 @@
       if (trigger) {
         trigger.addEventListener('click', function () {
           modal.setTitle('Assessment');
-          modal.setContent('');
+          try {
+            const html = (window.assessmentEngine && window.assessmentEngine.buildAssessment)
+              ? window.assessmentEngine.buildAssessment()
+              : '';
+            modal.setContent(html);
+          } catch (_) {
+            modal.setContent('');
+          }
           modal.open();
         });
       }
