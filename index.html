@@ -319,7 +319,7 @@
 
                 <div class="control-section">
                     <h3>AI Assessment</h3>
-                    <button class="btn btn-primary" id="reportBtn" disabled>
+                    <button class="btn btn-primary" id="reportBtn">
                         Generate Report
                     </button>
                     <div class="loading" id="loadingReport">
@@ -341,6 +341,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="./assessmentModal.js"></script>
     
     <script>
         // -- Setup and Variables --
@@ -355,6 +356,7 @@
         const polygonDrawer = new L.Draw.Polygon(map, { allowIntersection: false, showArea: true });
         
         const analyzeBtn = document.getElementById('analyzeBtn');
+        const reportBtn = document.getElementById('reportBtn');
         const designationsList = document.getElementById('designationsList');
         const loadingDesignations = document.getElementById('loadingDesignations');
         let currentPolygon = null;
