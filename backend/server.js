@@ -171,6 +171,65 @@ app.get('/api/debug-layer-geometry', async (req, res) => {
   }
 });
 
+// Flood summary: percentage of site at risk (auto-detect tables with 'flood' in name unless provided)
+app.post('/api/flood-summary', async (req, res) => {
+  try {
+    const { polygon, tables } = req.body || {};
+    if (!polygon) {
+      return res.status(400).json({ success: false, error: 'Missing polygon' });
+    }
+    const geometry = polygon.geometry || polygon;
+
+    // Determine flood tables
+    let floodTables = Array.isArray(tables) && tables.length > 0 ? tables : null;
+    if (!floodTables) {
+      const tblResult = await pool.query(
+        `SELECT table_name FROM information_schema.tables 
+         WHERE table_schema='public' AND table_type='BASE TABLE' 
+         AND lower(table_name) LIKE '%flood%'
+         ORDER BY table_name`
+      );
+      floodTables = tblResult.rows.map(r => r.table_name);
+    }
+
+    if (!floodTables || floodTables.length === 0) {
+      return res.json({ success: true, site_area_ha: 0, flood_area_ha: 0, percent: 0 });
+    }
+
+    // Build dynamic SQL to union flood geometries from all selected tables
+    const polyCte = `WITH poly_4326 AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS g)`;
+    const unions = floodTables
+      .map(tn => `SELECT ST_Transform(geom, 4326) AS g FROM "${tn}" r WHERE ST_Intersects(r.geom, ST_Transform((SELECT g FROM poly_4326), ST_SRID(r.geom)))`)
+      .join('\nUNION ALL\n');
+
+    const sql = `
+      ${polyCte},
+      flood_geoms AS (
+        ${unions}
+      ),
+      clipped AS (
+        SELECT ST_Intersection(g, (SELECT g FROM poly_4326)) AS g FROM flood_geoms
+      ),
+      merged AS (
+        SELECT ST_UnaryUnion(ST_Collect(g)) AS g FROM clipped WHERE NOT ST_IsEmpty(g)
+      )
+      SELECT 
+        ST_Area((SELECT g FROM poly_4326)::geography) / 10000.0 AS site_area_ha,
+        COALESCE(ST_Area((SELECT g FROM merged)::geography) / 10000.0, 0) AS flood_area_ha;
+    `;
+
+    const result = await pool.query(sql, [JSON.stringify(geometry)]);
+    const row = result.rows[0] || { site_area_ha: 0, flood_area_ha: 0 };
+    const siteAreaHa = Number(row.site_area_ha || 0);
+    const floodAreaHa = Number(row.flood_area_ha || 0);
+    const percent = siteAreaHa > 0 ? Math.max(0, Math.min(100, (floodAreaHa / siteAreaHa) * 100)) : 0;
+    res.json({ success: true, site_area_ha: siteAreaHa, flood_area_ha: floodAreaHa, percent: Number(percent.toFixed(1)) });
+  } catch (error) {
+    console.error('Error computing flood summary:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Proximity summary for Renewables: count within distance and nearest feature
 app.post('/api/renewables-proximity', async (req, res) => {
   try {

@@ -522,7 +522,10 @@
                   </div>
                   <div class=\"section\">
                     <h4>Flood risk</h4>
-                    <div class=\"section-content\">${floodHTML || '<div class=\\"designation-item\\">No flood layers matched.</div>'}</div>
+                    <div class=\"section-content\">
+                      <div id=\"floodSummaryInline\" class=\"designation-item\">Calculating flood percentage...</div>
+                      ${floodHTML || '<div class=\\"designation-item\\">No flood layers matched.</div>'}
+                    </div>
                   </div>
                   <div class=\"section\">
                     <h4>Cumulative impact (renewables)</h4>
@@ -538,6 +541,7 @@
                 // Append ALC summary and renewables proximity into their sections
                 appendAlcSummary();
                 appendRenewablesProximity();
+                appendFloodSummary();
 
             } else {
                 designationsList.innerHTML = '<div class="designation-item"><strong>No features found within the drawn area.</strong></div>';
@@ -566,6 +570,31 @@
                 if (renewablesEl) renewablesEl.innerHTML = html;
             } catch (err) {
                 designationsList.insertAdjacentHTML('beforeend', `<div class=\"designation-item\"><strong>Renewables Error:</strong> ${err.message}</div>`);
+            }
+        }
+
+        // -- Flood risk percentage --
+        async function appendFloodSummary() {
+            if (!currentPolygon) return;
+            const searchPolygon = currentPolygon.toGeoJSON();
+            try {
+                const response = await fetch('http://localhost:3000/api/flood-summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ polygon: searchPolygon, tables: ["Flood risk areas"] })
+                });
+                if (!response.ok) throw new Error(`Server returned an error: ${response.statusText}`);
+                const data = await response.json();
+                const el = document.getElementById('floodSummaryInline');
+                if (el) {
+                    const pct = data && data.success ? Number(data.percent || 0).toFixed(1) : '0.0';
+                    el.textContent = `Percentage of site at flood risk: ${pct}%`;
+                }
+            } catch (err) {
+                const el = document.getElementById('floodSummaryInline');
+                if (el) {
+                    el.textContent = `Flood summary error: ${err.message}`;
+                }
             }
         }
 
