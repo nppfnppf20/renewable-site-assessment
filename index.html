@@ -177,6 +177,16 @@
             margin-bottom: 0;
         }
 
+        /* Sectioned layout for Planning Designations */
+        .section { margin-top: 12px; }
+        .section h4 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        .section-content { margin-left: 12px; }
+
         .loading {
             display: none;
             text-align: center;
@@ -394,8 +404,6 @@
 
                 const results = await response.json();
                 displayAnalysisResults(results);
-                // Also fetch and append ALC summary into the same panel
-                appendAlcSummary();
 
             } catch (error) {
                 console.error('Error during analysis:', error);
@@ -420,16 +428,17 @@
                 const data = await response.json();
                 if (!data.success) throw new Error(data.error || 'Unknown error');
 
-                let html = '<div class="designation-item"><strong>ALC Summary</strong></div>';
-                html += `<div class="designation-item"><strong>Total site area:</strong> ${Number(data.total_area_ha).toFixed(2)} ha</div>`;
+                let html = '';
+                html += `<div class=\"designation-item\"><strong>Total site area:</strong> ${Number(data.total_area_ha).toFixed(2)} ha</div>`;
                 if (Array.isArray(data.by_grade) && data.by_grade.length > 0) {
                     data.by_grade.forEach(item => {
                         html += `<div class=\"designation-item\"><strong>${item.grade}:</strong> ${Number(item.area_ha).toFixed(2)} ha (${Number(item.percent).toFixed(1)}%)</div>`;
                     });
                 } else {
-                    html += '<div class="designation-item">No ALC grades found within the site.</div>';
+                    html += '<div class=\"designation-item\">No ALC grades found within the site.</div>';
                 }
-                designationsList.insertAdjacentHTML('beforeend', html);
+                const alcSectionEl = document.getElementById('alcSectionInline');
+                if (alcSectionEl) alcSectionEl.innerHTML = html;
             } catch (err) {
                 designationsList.insertAdjacentHTML('beforeend', `<div class=\"designation-item\"><strong>ALC Error:</strong> ${err.message}</div>`);
             }
@@ -438,7 +447,7 @@
         // -- Updated Function to Display Multi-Layer Results --
         function displayAnalysisResults(results) {
             if (results.success && results.totalFeatures > 0) {
-                let resultsHTML = `<div class="designation-item"><strong>Total: ${results.totalFeatures} Features Found</strong></div>`;
+                let resultsHTML = `<div class=\"designation-item\"><strong>Total: ${results.totalFeatures} Features Found</strong></div>`;
                 
                 // Define colors for different layers
                 const layerColors = {
@@ -451,16 +460,18 @@
                 // Hide certain layers from display (e.g., ALC source layer)
                 const hiddenLayers = new Set(['ALC UK', 'Renewable Energy developments Q1 2025']);
                 
-                // Process each layer's results
+                // Process each layer's results and group into sections
+                let floodHTML = '';
+                let otherHTML = '';
                 Object.keys(results.results).forEach((layerName, index) => {
                     if (hiddenLayers.has(layerName)) { return; }
                     const layerData = results.results[layerName];
                     const color = layerColors[layerName] || `hsl(${(index * 60) % 360}, 70%, 50%)`;
                     
                     if (layerData.count > 0) {
-                        resultsHTML += `<div class="designation-item">
-                            <strong style="color: ${color}">${layerName}:</strong> ${layerData.count} features
-                        </div>`;
+                        const itemHTML = `<div class=\"designation-item\"><strong style=\"color: ${color}\">${layerName}:</strong> ${layerData.count} features</div>`;
+                        const lname = (layerName || '').toLowerCase();
+                        if (lname.includes('flood')) { floodHTML += itemHTML; } else { otherHTML += itemHTML; }
                         
                         // Add features to map with layer-specific styling
                         layerData.features.forEach(feature => {
@@ -497,14 +508,34 @@
                             }).addTo(resultsLayer);
                         });
                     } else if (layerData.error) {
-                        resultsHTML += `<div class="designation-item">
-                            <strong style="color: #ef4444">${layerName}:</strong> Error - ${layerData.error}
-                        </div>`;
+                        const errorHTML = `<div class=\"designation-item\"><strong style=\"color: #ef4444\">${layerName}:</strong> Error - ${layerData.error}</div>`;
+                        const lname = (layerName || '').toLowerCase();
+                        if (lname.includes('flood')) { floodHTML += errorHTML; } else { otherHTML += errorHTML; }
                     }
                 });
 
+                // Build sectioned layout
+                resultsHTML += `
+                  <div class=\"section\">
+                    <h4>🌾 Agricultural land</h4>
+                    <div class=\"section-content\" id=\"alcSectionInline\"></div>
+                  </div>
+                  <div class=\"section\">
+                    <h4>🌊 Flood risk</h4>
+                    <div class=\"section-content\">${floodHTML || '<div class=\\"designation-item\\">No flood layers matched.</div>'}</div>
+                  </div>
+                  <div class=\"section\">
+                    <h4>⚡ Cumulative impact (renewables)</h4>
+                    <div class=\"section-content\" id=\"renewablesSectionInline\"></div>
+                  </div>
+                  <div class=\"section\">
+                    <h4>Other designations</h4>
+                    <div class=\"section-content\">${otherHTML}</div>
+                  </div>
+                `;
+
                 designationsList.innerHTML = resultsHTML;
-                // Append ALC summary and renewables proximity after main list
+                // Append ALC summary and renewables proximity into their sections
                 appendAlcSummary();
                 appendRenewablesProximity();
 
@@ -526,12 +557,13 @@
                 if (!response.ok) throw new Error(`Server returned an error: ${response.statusText}`);
                 const data = await response.json();
                 if (!data.success) throw new Error(data.error || 'Unknown error');
-                let html = '<div class="designation-item"><strong>Renewables Proximity</strong></div>';
+                let html = '';
                 html += `<div class=\"designation-item\">Within 5 km: ${Number(data.within_distance)}</div>`;
                 if (data.nearest) {
                     html += `<div class=\"designation-item\">Nearest: ${data.nearest.name || 'Unknown'} — ${Number(data.nearest.distance_km).toFixed(2)} km away</div>`;
                 }
-                designationsList.insertAdjacentHTML('beforeend', html);
+                const renewablesEl = document.getElementById('renewablesSectionInline');
+                if (renewablesEl) renewablesEl.innerHTML = html;
             } catch (err) {
                 designationsList.insertAdjacentHTML('beforeend', `<div class=\"designation-item\"><strong>Renewables Error:</strong> ${err.message}</div>`);
             }
