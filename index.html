@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewable Energy Site Assessment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <!-- Turf.js is no longer needed, it will be removed. -->
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --surface-color: #ffffff;
+            --primary-color: #2563eb;
+            --primary-hover-color: #1d4ed8;
+            --text-color: #1f2937;
+            --text-muted-color: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-color);
+        }
+        
+        .header .icon {
+            width: 32px;
+            height: 32px;
+            color: var(--primary-color);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: var(--text-muted-color);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+            height: 75vh;
+        }
+
+        .map-container {
+            background: var(--surface-color);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .leaflet-tile-pane { 
+            /* filter: grayscale(1) contrast(1.2) brightness(0.8); */
+        }
+
+        .controls-panel {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-section {
+            background-color: var(--bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .control-section h3 {
+            color: var(--text-color);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin: 5px 0;
+            width: 100%;
+            background-color: var(--surface-color);
+            color: var(--text-color);
+        }
+
+        .btn:hover {
+            background-color: #f9fafb;
+            border-color: #d1d5db;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: #e5e7eb;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover-color);
+            border-color: var(--primary-hover-color);
+        }
+
+        .designations-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--surface-color);
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .designation-item {
+            background: var(--bg-color);
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            border-left: 3px solid var(--primary-color);
+            font-size: 0.9rem;
+        }
+        
+        .designation-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 15px 0;
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 8px;
+        }
+
+        .report-section {
+            background: var(--surface-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .report-section h4 {
+            margin-bottom: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .suitability-score {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-left: 8px;
+        }
+        
+        .score-high { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .score-medium { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .score-low { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+        .report-section .designation-breakdown {
+            margin-top: 20px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+        
+        .report-section .designation-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .report-section .designation-row:last-child {
+            border-bottom: none;
+        }
+
+        .report-section .designation-name {
+            font-weight: 500;
+        }
+
+        .report-section .designation-score {
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+
+        .report-section .recommendations ul {
+            list-style-position: inside;
+            padding-left: 5px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .map-container {
+                height: 45vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12.963 2.286a.75.75 0 00-1.071 1.071l9 9a.75.75 0 001.071-1.071l-9-9zM12 3a9 9 0 100 18 9 9 0 000-18zm-4.5 9.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-1.5H8.25a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
+                </svg>
+                Renewable Energy Site Assessment
+            </h1>
+            <p>Draw a polygon on the map to analyze planning designations and assess site suitability</p>
+        </div>
+
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="control-section">
+                    <h3>📍 Map Controls</h3>
+                    <button class="btn btn-primary" id="drawBtn">
+                        Draw Polygon
+                    </button>
+                    <button class="btn btn-danger" id="clearBtn">
+                        Clear All
+                    </button>
+                </div>
+
+                <div class="control-section">
+                    <h3>🗺️ Planning Designations</h3>
+                    <button class="btn btn-secondary" onclick="analyzeDesignations()" id="analyzeBtn" disabled>
+                        Analyze Area
+                    </button>
+                    <div class="loading" id="loadingDesignations">
+                        <div class="spinner"></div>
+                        <p>Fetching planning data...</p>
+                    </div>
+                    <div class="designations-list" id="designationsList"></div>
+                </div>
+
+                <div class="control-section">
+                    <h3>🤖 AI Assessment</h3>
+                    <button class="btn btn-primary" id="reportBtn" disabled>
+                        Generate Report
+                    </button>
+                    <div class="loading" id="loadingReport">
+                        <div class="spinner"></div>
+                        <p>AI analyzing suitability...</p>
+                    </div>
+                    <!-- The report will now be generated inside this div -->
+                    <div class="report-section" id="reportSection" style="display: none;">
+                        <h4>📊 Suitability Report</h4>
+                        <div class="report-content" id="reportContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- The old, separate report section below is now completely removed -->
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    
+    <script>
+        // -- Setup and Variables --
+        const map = L.map('map').setView([54.5, -3.4359], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+
+        const drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        const resultsLayer = new L.FeatureGroup(); // Layer to display results from backend
+        map.addLayer(resultsLayer);
+        
+        const polygonDrawer = new L.Draw.Polygon(map, { allowIntersection: false, showArea: true });
+        
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const designationsList = document.getElementById('designationsList');
+        const loadingDesignations = document.getElementById('loadingDesignations');
+        let currentPolygon = null;
+
+        // -- Button Event Listeners --
+        document.getElementById('drawBtn').addEventListener('click', () => polygonDrawer.enable());
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            drawnItems.clearLayers();
+            resultsLayer.clearLayers(); // Also clear the results
+            currentPolygon = null;
+            analyzeBtn.disabled = true;
+            designationsList.innerHTML = '';
+        });
+        analyzeBtn.addEventListener('click', analyzeDesignations);
+
+        // -- Map Drawing Event --
+        map.on(L.Draw.Event.CREATED, function (e) {
+            drawnItems.clearLayers();
+            resultsLayer.clearLayers(); // Also clear the results
+            const layer = e.layer;
+            drawnItems.addLayer(layer);
+            currentPolygon = layer;
+            analyzeBtn.disabled = false;
+        });
+        
+        // -- Rewritten Analysis Function to Call Backend --
+        async function analyzeDesignations() {
+            if (!currentPolygon) return;
+
+            loadingDesignations.style.display = 'block';
+            designationsList.innerHTML = '';
+            resultsLayer.clearLayers();
+            analyzeBtn.disabled = true;
+
+            const searchPolygon = currentPolygon.toGeoJSON();
+
+            try {
+                const response = await fetch('http://localhost:3000/api/analyze-polygon', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ polygon: searchPolygon })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned an error: ${response.statusText}`);
+                }
+
+                const results = await response.json();
+                displayAnalysisResults(results);
+
+            } catch (error) {
+                console.error('Error during analysis:', error);
+                designationsList.innerHTML = `<div class="designation-item"><strong>Error:</strong> Could not connect to the backend server.</div>`;
+            } finally {
+                loadingDesignations.style.display = 'none';
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        // -- Updated Function to Display Multi-Layer Results --
+        function displayAnalysisResults(results) {
+            if (results.success && results.totalFeatures > 0) {
+                let resultsHTML = `<div class="designation-item"><strong>Total: ${results.totalFeatures} Features Found</strong></div>`;
+                
+                // Define colors for different layers
+                const layerColors = {
+                    'Cluster_Maps': '#f97316',
+                    'flood_zones': '#3b82f6',
+                    'wind_speeds': '#10b981',
+                    'protected_areas': '#ef4444',
+                    'planning_constraints': '#8b5cf6'
+                };
+                
+                // Process each layer's results
+                Object.keys(results.results).forEach((layerName, index) => {
+                    const layerData = results.results[layerName];
+                    const color = layerColors[layerName] || `hsl(${(index * 60) % 360}, 70%, 50%)`;
+                    
+                    if (layerData.count > 0) {
+                        resultsHTML += `<div class="designation-item">
+                            <strong style="color: ${color}">${layerName}:</strong> ${layerData.count} features
+                        </div>`;
+                        
+                        // Add features to map with layer-specific styling
+                        layerData.features.forEach(feature => {
+                            const featureGeoJSON = {
+                                type: "Feature",
+                                geometry: JSON.parse(feature.geojson),
+                                properties: { 
+                                    name: feature.name || `${layerName} feature`,
+                                    layer: layerName,
+                                    ...feature // Include all other properties
+                                }
+                            };
+                            
+                            L.geoJSON(featureGeoJSON, {
+                                style: { 
+                                    color: color, 
+                                    weight: 2, 
+                                    fillOpacity: 0.6 
+                                },
+                                onEachFeature: function(feature, layer) {
+                                    // Add popup with feature information
+                                    let popupContent = `<strong>Layer:</strong> ${feature.properties.layer}<br>`;
+                                    if (feature.properties.name) {
+                                        popupContent += `<strong>Name:</strong> ${feature.properties.name}<br>`;
+                                    }
+                                    // Add other relevant properties
+                                    Object.keys(feature.properties).forEach(key => {
+                                        if (key !== 'layer' && key !== 'name' && key !== 'geojson') {
+                                            popupContent += `<strong>${key}:</strong> ${feature.properties[key]}<br>`;
+                                        }
+                                    });
+                                    layer.bindPopup(popupContent);
+                                }
+                            }).addTo(resultsLayer);
+                        });
+                    } else if (layerData.error) {
+                        resultsHTML += `<div class="designation-item">
+                            <strong style="color: #ef4444">${layerName}:</strong> Error - ${layerData.error}
+                        </div>`;
+                    }
+                });
+
+                designationsList.innerHTML = resultsHTML;
+
+            } else {
+                designationsList.innerHTML = '<div class="designation-item"><strong>No features found within the drawn area.</strong></div>';
+            }
+        }
+
+    </script>
+</body>
+</html> 
