@@ -297,7 +297,7 @@
 
                 <div class="control-section">
                     <h3>🗺️ Planning Designations</h3>
-                    <button class="btn btn-secondary" onclick="analyzeDesignations()" id="analyzeBtn" disabled>
+                    <button class="btn btn-secondary" id="analyzeBtn" disabled>
                         Analyze Area
                     </button>
                     <div class="loading" id="loadingDesignations">
@@ -323,20 +323,7 @@
                     </div>
                 </div>
 
-                <div class="control-section">
-                    <h3>🌾 Agricultural Land Classification</h3>
-                    <button class="btn btn-secondary" id="alcBtn" disabled>
-                        Show ALC Summary
-                    </button>
-                    <div class="loading" id="loadingAlc" style="display: none;">
-                        <div class="spinner"></div>
-                        <p>Calculating ALC breakdown...</p>
-                    </div>
-                    <div class="report-section" id="alcSection" style="display: none;">
-                        <h4>🌾 ALC Summary</h4>
-                        <div class="report-content" id="alcContent"></div>
-                    </div>
-                </div>
+                
             </div>
         </div>
         <!-- The old, separate report section below is now completely removed -->
@@ -358,12 +345,8 @@
         const polygonDrawer = new L.Draw.Polygon(map, { allowIntersection: false, showArea: true });
         
         const analyzeBtn = document.getElementById('analyzeBtn');
-        const alcBtn = document.getElementById('alcBtn');
         const designationsList = document.getElementById('designationsList');
         const loadingDesignations = document.getElementById('loadingDesignations');
-        const loadingAlc = document.getElementById('loadingAlc');
-        const alcSection = document.getElementById('alcSection');
-        const alcContent = document.getElementById('alcContent');
         let currentPolygon = null;
 
         // -- Button Event Listeners --
@@ -373,13 +356,9 @@
             resultsLayer.clearLayers(); // Also clear the results
             currentPolygon = null;
             analyzeBtn.disabled = true;
-            alcBtn.disabled = true;
             designationsList.innerHTML = '';
-            alcSection.style.display = 'none';
-            alcContent.innerHTML = '';
         });
         analyzeBtn.addEventListener('click', analyzeDesignations);
-        alcBtn.addEventListener('click', showAlcSummary);
 
         // -- Map Drawing Event --
         map.on(L.Draw.Event.CREATED, function (e) {
@@ -389,7 +368,6 @@
             drawnItems.addLayer(layer);
             currentPolygon = layer;
             analyzeBtn.disabled = false;
-            alcBtn.disabled = false;
         });
         
         // -- Rewritten Analysis Function to Call Backend --
@@ -416,6 +394,8 @@
 
                 const results = await response.json();
                 displayAnalysisResults(results);
+                // Also fetch and append ALC summary into the same panel
+                appendAlcSummary();
 
             } catch (error) {
                 console.error('Error during analysis:', error);
@@ -426,52 +406,32 @@
             }
         }
 
-        // -- ALC Summary --
-        async function showAlcSummary() {
+        // -- ALC Summary (integrated into Planning Designations) --
+        async function appendAlcSummary() {
             if (!currentPolygon) return;
-
-            loadingAlc.style.display = 'block';
-            alcSection.style.display = 'none';
-            alcContent.innerHTML = '';
-
             const searchPolygon = currentPolygon.toGeoJSON();
-
             try {
                 const response = await fetch('http://localhost:3000/api/alc-summary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ polygon: searchPolygon })
                 });
-
-                if (!response.ok) {
-                    throw new Error(`Server returned an error: ${response.statusText}`);
-                }
-
+                if (!response.ok) throw new Error(`Server returned an error: ${response.statusText}`);
                 const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.error || 'Unknown error');
-                }
+                if (!data.success) throw new Error(data.error || 'Unknown error');
 
-                // Render numbers only
-                let html = '';
-                html += `<div><strong>Total site area:</strong> ${data.total_area_ha.toFixed(2)} ha</div>`;
+                let html = '<div class="designation-item"><strong>ALC Summary</strong></div>';
+                html += `<div class="designation-item"><strong>Total site area:</strong> ${Number(data.total_area_ha).toFixed(2)} ha</div>`;
                 if (Array.isArray(data.by_grade) && data.by_grade.length > 0) {
-                    html += '<div style="margin-top:10px;">';
                     data.by_grade.forEach(item => {
-                        html += `<div class="designation-item"><strong>${item.grade}:</strong> ${Number(item.area_ha).toFixed(2)} ha (${Number(item.percent).toFixed(1)}%)</div>`;
+                        html += `<div class=\"designation-item\"><strong>${item.grade}:</strong> ${Number(item.area_ha).toFixed(2)} ha (${Number(item.percent).toFixed(1)}%)</div>`;
                     });
-                    html += '</div>';
                 } else {
                     html += '<div class="designation-item">No ALC grades found within the site.</div>';
                 }
-
-                alcContent.innerHTML = html;
-                alcSection.style.display = 'block';
+                designationsList.insertAdjacentHTML('beforeend', html);
             } catch (err) {
-                alcContent.innerHTML = `<div class="designation-item"><strong>Error:</strong> ${err.message}</div>`;
-                alcSection.style.display = 'block';
-            } finally {
-                loadingAlc.style.display = 'none';
+                designationsList.insertAdjacentHTML('beforeend', `<div class=\"designation-item\"><strong>ALC Error:</strong> ${err.message}</div>`);
             }
         }
 
@@ -488,9 +448,12 @@
                     'protected_areas': '#ef4444',
                     'planning_constraints': '#8b5cf6'
                 };
+                // Hide certain layers from display (e.g., ALC source layer)
+                const hiddenLayers = new Set(['ALC UK', 'Renewable Energy developments Q1 2025']);
                 
                 // Process each layer's results
                 Object.keys(results.results).forEach((layerName, index) => {
+                    if (hiddenLayers.has(layerName)) { return; }
                     const layerData = results.results[layerName];
                     const color = layerColors[layerName] || `hsl(${(index * 60) % 360}, 70%, 50%)`;
                     
@@ -541,9 +504,36 @@
                 });
 
                 designationsList.innerHTML = resultsHTML;
+                // Append ALC summary and renewables proximity after main list
+                appendAlcSummary();
+                appendRenewablesProximity();
 
             } else {
                 designationsList.innerHTML = '<div class="designation-item"><strong>No features found within the drawn area.</strong></div>';
+            }
+        }
+
+        // -- Renewables Proximity (5km default) --
+        async function appendRenewablesProximity() {
+            if (!currentPolygon) return;
+            const searchPolygon = currentPolygon.toGeoJSON();
+            try {
+                const response = await fetch('http://localhost:3000/api/renewables-proximity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ polygon: searchPolygon, distance_m: 5000 })
+                });
+                if (!response.ok) throw new Error(`Server returned an error: ${response.statusText}`);
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Unknown error');
+                let html = '<div class="designation-item"><strong>Renewables Proximity</strong></div>';
+                html += `<div class=\"designation-item\">Within 5 km: ${Number(data.within_distance)}</div>`;
+                if (data.nearest) {
+                    html += `<div class=\"designation-item\">Nearest: ${data.nearest.name || 'Unknown'} — ${Number(data.nearest.distance_km).toFixed(2)} km away</div>`;
+                }
+                designationsList.insertAdjacentHTML('beforeend', html);
+            } catch (err) {
+                designationsList.insertAdjacentHTML('beforeend', `<div class=\"designation-item\"><strong>Renewables Error:</strong> ${err.message}</div>`);
             }
         }
 

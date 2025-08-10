@@ -171,6 +171,51 @@ app.get('/api/debug-layer-geometry', async (req, res) => {
   }
 });
 
+// Proximity summary for Renewables: count within distance and nearest feature
+app.post('/api/renewables-proximity', async (req, res) => {
+  try {
+    const { polygon, distance_m } = req.body;
+    if (!polygon) {
+      return res.status(400).json({ success: false, error: 'Missing polygon' });
+    }
+    const distanceMeters = Number(distance_m) || 5000; // default 5km
+    const geometry = polygon.geometry || polygon;
+
+    const sql = `
+      WITH poly_4326 AS (
+        SELECT ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS g
+      ),
+      poly_native AS (
+        SELECT ST_Transform(g, ST_SRID(r.geom)) AS g
+        FROM poly_4326, "Renewable Energy developments Q1 2025" r
+        LIMIT 1
+      )
+      SELECT
+        (
+          SELECT COUNT(*)
+          FROM "Renewable Energy developments Q1 2025" r, poly_native p
+          WHERE ST_DWithin(r.geom, p.g, $2)
+        ) AS within_distance,
+        (
+          SELECT json_build_object(
+            'name', r."Site Name",
+            'distance_km', ROUND((ST_Distance(ST_Transform(r.geom, 4326)::geography, (SELECT g FROM poly_4326)::geography) / 1000)::numeric, 2)
+          )
+          FROM "Renewable Energy developments Q1 2025" r
+          ORDER BY ST_Distance(ST_Transform(r.geom, 4326)::geography, (SELECT g FROM poly_4326)::geography)
+          LIMIT 1
+        ) AS nearest;
+    `;
+
+    const result = await pool.query(sql, [JSON.stringify(geometry), distanceMeters]);
+    const row = result.rows[0] || { within_distance: 0, nearest: null };
+    res.json({ success: true, within_distance: Number(row.within_distance || 0), nearest: row.nearest || null });
+  } catch (error) {
+    console.error('Error computing renewables proximity:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ALC summary: numbers only (area per grade and percentages)
 app.post('/api/alc-summary', async (req, res) => {
   try {
