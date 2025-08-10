@@ -296,7 +296,7 @@
 
             <div class="controls-panel">
                 <div class="control-section">
-                    <h3>📍 Map Controls</h3>
+                    <h3>Map Controls</h3>
                     <button class="btn btn-primary" id="drawBtn">
                         Draw Polygon
                     </button>
@@ -306,7 +306,7 @@
                 </div>
 
                 <div class="control-section">
-                    <h3>🗺️ Planning Designations</h3>
+                    <h3>Planning Designations</h3>
                     <button class="btn btn-secondary" id="analyzeBtn" disabled>
                         Analyze Area
                     </button>
@@ -318,7 +318,7 @@
                 </div>
 
                 <div class="control-section">
-                    <h3>🤖 AI Assessment</h3>
+                    <h3>AI Assessment</h3>
                     <button class="btn btn-primary" id="reportBtn" disabled>
                         Generate Report
                     </button>
@@ -328,7 +328,7 @@
                     </div>
                     <!-- The report will now be generated inside this div -->
                     <div class="report-section" id="reportSection" style="display: none;">
-                        <h4>📊 Suitability Report</h4>
+                        <h4>Suitability Report</h4>
                         <div class="report-content" id="reportContent"></div>
                     </div>
                 </div>
@@ -517,15 +517,15 @@
                 // Build sectioned layout
                 resultsHTML += `
                   <div class=\"section\">
-                    <h4>🌾 Agricultural land</h4>
+                    <h4>Agricultural land</h4>
                     <div class=\"section-content\" id=\"alcSectionInline\"></div>
                   </div>
                   <div class=\"section\">
-                    <h4>🌊 Flood risk</h4>
+                    <h4>Flood risk</h4>
                     <div class=\"section-content\">${floodHTML || '<div class=\\"designation-item\\">No flood layers matched.</div>'}</div>
                   </div>
                   <div class=\"section\">
-                    <h4>⚡ Cumulative impact (renewables)</h4>
+                    <h4>Cumulative impact (renewables)</h4>
                     <div class=\"section-content\" id=\"renewablesSectionInline\"></div>
                   </div>
                   <div class=\"section\">
