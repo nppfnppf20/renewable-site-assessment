@@ -21,7 +21,7 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); colo
 .controls-panel { background-color: var(--surface-color); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; gap: 20px; }
 .control-section { background-color: var(--bg-color); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
 .control-section h3 { color: var(--text-color); margin-bottom: 15px; font-size: 1.1rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-.btn { padding: 10px 18px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease; margin: 5px 0; width: 100%; background-color: var(--surface-color); color: var(--text-color); }
+.btn { padding: 10px 18px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease; margin: 5px 0; width: 100%; background-color: var(--surface-color); color: var(--text-color); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .btn:hover { background-color: #f9fafb; border-color: #d1d5db; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; background-color: #e5e7eb; }
 .btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); color: white; }
@@ -36,5 +36,41 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); colo
 @media (max-width: 1024px) {
   .main-content { grid-template-columns: 1fr; height: auto; }
   .map-container { height: 45vh; }
+}
+
+/* Spinner for inline button loading */
+.btn .btn-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Secondary button variant spinner color */
+.btn.btn-secondary .btn-spinner {
+  border: 2px solid rgba(31, 41, 55, 0.35);
+  border-top-color: rgba(31, 41, 55, 0.8);
+}
+
+/* Keep button fully opaque while busy so the spinner is visible */
+.btn[aria-busy="true"]:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+/* Preserve primary styling while disabled when busy */
+.btn.btn-primary[aria-busy="true"]:disabled {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
 }
 

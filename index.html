@@ -42,13 +42,9 @@
 
                 <div class="control-section">
                     <h3>Planning Designations</h3>
-                    <button class="btn btn-secondary" id="analyzeBtn" disabled>
+                    <button class="btn btn-primary" id="analyzeBtn" disabled>
                         Analyze Area
                     </button>
-                    <div class="loading" id="loadingDesignations" style="display: none;">
-                        <div class="spinner"></div>
-                        <p>Fetching planning data...</p>
-                    </div>
                     <div class="designations-list" id="designationsList"></div>
                 </div>
 
@@ -98,7 +94,6 @@
         const analyzeBtn = document.getElementById('analyzeBtn');
         const reportBtn = document.getElementById('reportBtn');
         const designationsList = document.getElementById('designationsList');
-        const loadingDesignations = document.getElementById('loadingDesignations');
         let currentPolygon = null;
 
         // -- Button Event Listeners --
@@ -128,10 +123,19 @@
         async function analyzeDesignations() {
             if (!currentPolygon) return;
 
-            loadingDesignations.style.display = 'block';
+            const defaultLabel = analyzeBtn.dataset.defaultLabel || analyzeBtn.textContent.trim() || 'Analyze Area';
+            analyzeBtn.dataset.defaultLabel = defaultLabel;
+            analyzeBtn.dataset.defaultClass = analyzeBtn.dataset.defaultClass || analyzeBtn.className;
+            analyzeBtn.className = 'btn btn-secondary';
+            analyzeBtn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Fetching planning data...</span>';
+            analyzeBtn.setAttribute('aria-busy', 'true');
+            analyzeBtn.disabled = true;
+
             designationsList.innerHTML = '';
             resultsLayer.clearLayers();
-            analyzeBtn.disabled = true;
+
+            // Yield a frame so the spinner paints before starting work
+            await new Promise(requestAnimationFrame);
 
             const searchPolygon = currentPolygon.toGeoJSON();
 
@@ -155,7 +159,9 @@
                 console.error('Error during analysis:', error);
                 designationsList.innerHTML = `<div class="designation-item"><strong>Error:</strong> Could not connect to the backend server.</div>`;
             } finally {
-                loadingDesignations.style.display = 'none';
+                analyzeBtn.innerHTML = analyzeBtn.dataset.defaultLabel || 'Analyze Area';
+                analyzeBtn.removeAttribute('aria-busy');
+                analyzeBtn.className = analyzeBtn.dataset.defaultClass || 'btn btn-secondary';
                 analyzeBtn.disabled = false;
             }
         }
